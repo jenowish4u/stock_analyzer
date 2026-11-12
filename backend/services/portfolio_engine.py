@@ -44,18 +44,39 @@ class PortfolioEngine:
     @staticmethod
     def parse_file(content: bytes, filename: str):
         fn = filename.lower()
-        text = content.decode('utf-8', errors='ignore')
 
-        # Check if this is a Zerodha multi-statement export
-        if "Holdings Statement" in text or "Client ID" in text:
-            return PortfolioEngine.parse_zerodha_statement(text)
+        # 1. Excel workbook (.xlsx / .xls)
+        if fn.endswith('.xlsx') or fn.endswith('.xls'):
+            try:
+                import openpyxl
+                wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
+                # Check for Zerodha sheets or tables
+                zerodha_sheets = [s for s in ['Combined', 'Equity', 'Mutual Funds'] if s in wb.sheetnames]
+                if zerodha_sheets:
+                    all_rows = []
+                    for sheet in ['Combined', 'Equity', 'Mutual Funds']:
+                        if sheet in wb.sheetnames:
+                            ws = wb[sheet]
+                            all_rows.append([f"{sheet} Holdings Statement"])
+                            for r in ws.iter_rows(values_only=True):
+                                all_rows.append([str(c) if c is not None else "" for c in r])
+                    return PortfolioEngine.parse_zerodha_rows(all_rows)
+            except Exception as e:
+                pass
 
-        # Standard CSV / Excel / JSON fallback
-        if fn.endswith('.csv') or fn.endswith('.txt'):
-            df = pd.read_csv(io.StringIO(text))
-        elif fn.endswith('.xlsx') or fn.endswith('.xls'):
+            # Standard Excel table fallback
             df = pd.read_excel(io.BytesIO(content))
+
+        elif fn.endswith('.csv') or fn.endswith('.txt'):
+            text = content.decode('utf-8', errors='ignore')
+            # Check if this is a Zerodha multi-statement export
+            if "Holdings Statement" in text or "Client ID" in text or "FW3757" in text:
+                reader = csv.reader(io.StringIO(text))
+                return PortfolioEngine.parse_zerodha_rows([row for row in reader])
+            df = pd.read_csv(io.StringIO(text))
+
         elif fn.endswith('.json'):
+            text = content.decode('utf-8', errors='ignore')
             df = pd.read_json(io.StringIO(text))
         else:
             raise ValueError("Unsupported format. Please upload CSV, XLSX, XLS, or JSON.")
@@ -109,16 +130,18 @@ class PortfolioEngine:
 
     @staticmethod
     def parse_zerodha_statement(text: str):
+        reader = csv.reader(io.StringIO(text))
+        return PortfolioEngine.parse_zerodha_rows([row for row in reader])
+
+    @staticmethod
+    def parse_zerodha_rows(all_rows: list):
         """
-        Custom parser for Zerodha Multi-Asset Statement:
+        Custom parser for Zerodha Multi-Asset Statement rows:
         - Extracts Client ID
         - Extracts Equity Holdings Statement
         - Extracts Mutual Funds Holdings Statement
         - Extracts Combined Holdings Statement
         """
-        reader = csv.reader(io.StringIO(text))
-        all_rows = [row for row in reader]
-
         combined_records = []
         equity_records = []
         mf_records = []
@@ -128,7 +151,7 @@ class PortfolioEngine:
         sym_idx = 0
 
         for row in all_rows:
-            cleaned = [c.strip() for c in row]
+            cleaned = [str(c).strip() for c in row]
             row_str = " ".join(cleaned)
 
             if "Equity Holdings Statement" in row_str:
