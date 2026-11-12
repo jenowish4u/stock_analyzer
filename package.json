@@ -1,0 +1,13 @@
+{
+  "name": "bse-alphalens-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "python -m uvicorn backend.main:app --host 0.0.0.0 --port 5000",
+    "server": "python -m uvicorn backend.main:app --host 0.0.0.0 --port 5000 --reload",
+    "client": "npm run dev --prefix client",
+    "build": "npm run build --prefix client",
+    "install:client": "npm install --prefix client",
+    "install:python": "pip install -r requirements.txt"
+  }
+}
