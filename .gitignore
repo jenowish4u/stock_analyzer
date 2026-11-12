@@ -1,0 +1,28 @@
+# Node
+node_modules/
+client/node_modules/
+
+# Python
+__pycache__/
+backend/**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Environment and logs
+.env
+*.log
+
+# Editor & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Empty legacy server directory
+server/
